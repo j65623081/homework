@@ -81,4 +81,72 @@ class StorageStateTest extends ApiTestCase
 
         $this->getJson('/api/notes')->assertStatus(500);
     }
+
+    /**
+     * Находки сессии 3. Список разбирался как JSON и проходил проверку контейнера,
+     * а что лежит внутри — не смотрел никто.
+     */
+    public function test_элемент_списка_не_объект_считается_порчей(): void
+    {
+        $this->writeStorage('[1,2,3]');
+
+        $response = $this->getJson('/api/notes');
+
+        $response->assertStatus(500);
+        $this->assertErrorShape($response, 'storage_corrupted');
+    }
+
+    public function test_элемент_списка_без_id_считается_порчей(): void
+    {
+        $this->writeStorage('[{}]');
+
+        $response = $this->getJson('/api/notes');
+
+        $response->assertStatus(500);
+        $this->assertErrorShape($response, 'storage_corrupted');
+    }
+
+    public function test_запись_с_пустым_или_нестроковым_id_считается_порчей(): void
+    {
+        foreach (['[{"id":""}]', '[{"id":null}]', '[{"id":42}]', '[{"id":["x"]}]'] as $contents) {
+            $this->writeStorage($contents);
+
+            $response = $this->getJson('/api/notes');
+
+            $response->assertStatus(500, "Хранилище {$contents} должно считаться испорченным");
+            $this->assertErrorShape($response, 'storage_corrupted');
+        }
+    }
+
+    public function test_вложенный_список_вместо_записи_считается_порчей(): void
+    {
+        $this->writeStorage('[["id","x"]]');
+
+        $this->assertErrorShape($this->getJson('/api/notes'), 'storage_corrupted');
+    }
+
+    public function test_запись_без_остальных_полей_порчей_не_считается(): void
+    {
+        // Граница проведена по id: у него нет разумного значения по умолчанию,
+        // это адрес записи. Остальные поля present() дополняет пустыми значениями,
+        // и это не выдумывание данных, а отражение пустоты.
+        $this->writeStorage('[{"id":"11111111-1111-4111-8111-111111111111"}]');
+
+        $response = $this->getJson('/api/notes');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.0.id', '11111111-1111-4111-8111-111111111111');
+        $response->assertJsonPath('data.0.title', '');
+        $response->assertJsonPath('data.0.tags', []);
+    }
+
+    public function test_испорченная_запись_не_перезаписывается(): void
+    {
+        $corrupted = '[{}]';
+        $this->writeStorage($corrupted);
+
+        $this->postJson('/api/notes', ['title' => 'Новая'])->assertStatus(500);
+
+        $this->assertSame($corrupted, $this->rawStorage(), 'Файл должен остаться нетронутым');
+    }
 }

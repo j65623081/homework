@@ -46,7 +46,35 @@ class NoteStorage
             throw ApiException::storageCorrupted();
         }
 
+        foreach ($decoded as $note) {
+            if (! self::isNote($note)) {
+                throw ApiException::storageCorrupted();
+            }
+        }
+
         return $decoded;
+    }
+
+    /**
+     * Проверка отдельной записи. Раньше её не было: контейнер проверялся
+     * (это JSON, это список), а что лежит внутри — не смотрел никто. Из-за этого
+     * хранилище вида `[{}]` отдавалось клиенту как 200 с заметкой `id: null`,
+     * то есть порча просачивалась наружу под видом валидных данных.
+     *
+     * Граница проведена по `id` и только по нему: это адрес записи, и разумного
+     * значения по умолчанию у него нет — заметка без `id` недостижима через
+     * GET, PUT и DELETE. Остальные поля дополняет present() в контроллере,
+     * и его умолчания не выдумывают данные, а отражают пустоту.
+     */
+    private static function isNote(mixed $note): bool
+    {
+        if (! is_array($note) || array_is_list($note)) {
+            return false;
+        }
+
+        $id = $note['id'] ?? null;
+
+        return is_string($id) && $id !== '';
     }
 
     /**
