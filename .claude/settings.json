@@ -35,7 +35,9 @@
       "Write(homework.pdf)",
       "Edit(homework.pdf)",
       "Write(materials/**)",
-      "Edit(materials/**)"
+      "Edit(materials/**)",
+      "Write(naive/**)",
+      "Edit(naive/**)"
     ],
     "ask": [
       "Bash(git push*)",
