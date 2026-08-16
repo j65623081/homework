@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "disableBypassPermissionsMode": "disable",
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(~/.ssh/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(git reset --hard*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git clean*)",
+      "Bash(git filter-branch*)",
+
+      "Bash(composer require*)",
+      "Bash(composer remove*)",
+      "Bash(composer update*)",
+      "Bash(npm install*)",
+      "Bash(npm i *)",
+      "Bash(php artisan install:api*)",
+
+      "Bash(php artisan migrate*)",
+      "Bash(php artisan db*)",
+      "Bash(php artisan make:migration*)",
+      "Bash(php artisan make:model*)",
+      "Bash(docker*)",
+      "Bash(docker-compose*)",
+      "Bash(wget *)",
+
+      "Write(homework.pdf)",
+      "Edit(homework.pdf)",
+      "Write(materials/**)",
+      "Edit(materials/**)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(git commit*)",
+      "Bash(composer*)",
+      "Bash(curl*)",
+      "Bash(php artisan*)"
+    ]
+  }
+}
