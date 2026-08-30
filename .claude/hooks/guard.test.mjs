@@ -94,6 +94,10 @@ const cases = [
     { tool_name: 'Edit', tool_input: { file_path: 'C:/Users/Ivan/Desktop/TestTask/sessions/session-6.md' } }],
   ['КОНТРОЛЬ: чтение журнала', PASS,
     { tool_name: 'Bash', tool_input: { command: 'cat sessions/STATE.md' } }],
+  ['КОНТРОЛЬ: коммит журнала с подписью Co-Authored-By', PASS,
+    { tool_name: 'Bash', tool_input: { command: 'git add sessions/session-6.md && git commit -m "Шаг 8: аудит\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>"' } }],
+  ['Настоящее перенаправление в sessions/ всё ещё блокируется', BLOCK,
+    { tool_name: 'Bash', tool_input: { command: 'echo "мусор" > sessions/session-1.md' } }],
 ];
 
 let failed = 0;

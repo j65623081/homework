@@ -169,7 +169,18 @@ if (tool === 'Bash') {
     );
   }
 
-  const mutating = BASH_MUTATION.test(cmd);
+  /**
+   * `>>?[^>]` в BASH_MUTATION ловит перенаправление вывода — но точно так же
+   * совпадает с закрывающей `>` в адресе вида `<noreply@anthropic.com>`, который
+   * стоит в конце каждого коммита с подписью Co-Authored-By. Найдено на шаге 8
+   * ДЗ №2 (2026-08-30): коммит журнала аудита заблокировался с диагнозом
+   * «попытка изменить sessions/ командой оболочки», хотя команда была самым
+   * обычным `git commit`, без единого перенаправления. Убираем такие адреса
+   * из копии команды ПЕРЕД проверкой на мутацию — только для этой проверки,
+   * остальные правила (в частности запрет на секреты) видят команду как есть.
+   */
+  const cmdForMutationCheck = cmd.replace(/<[\w.+-]+@[\w.-]+>/g, 'EMAILADDR');
+  const mutating = BASH_MUTATION.test(cmdForMutationCheck);
 
   if (mutating) {
     for (const [re, what] of IMMUTABLE_PATHS) {
