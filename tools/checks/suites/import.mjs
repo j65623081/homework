@@ -428,11 +428,20 @@ export default {
                 storage.writeNotes([]);
                 storage.writeKeysRaw('{ это не json');
                 const before = storage.readKeysRaw();
-                const res = await api.postJson(IMPORT, batch(1), { headers: { 'Idempotency-Key': key() } });
-                expect(res.status === 500, describe(res));
-                expect(res.json?.error?.code === 'internal_error', describe(res));
-                expect(storage.readKeysRaw() === before, `реестр перезаписан: ${short(storage.readKeysRaw())}`);
-                return `${describe(res)}, реестр не перезаписан`;
+                try {
+                    const res = await api.postJson(IMPORT, batch(1), { headers: { 'Idempotency-Key': key() } });
+                    expect(res.status === 500, describe(res));
+                    expect(res.json?.error?.code === 'internal_error', describe(res));
+                    expect(storage.readKeysRaw() === before, `реестр перезаписан: ${short(storage.readKeysRaw())}`);
+                    return `${describe(res)}, реестр не перезаписан`;
+                } finally {
+                    // Порча реестра — общее состояние на диске, а не приватное состояние
+                    // этой проверки. Не восстановить его здесь значит подставить
+                    // следующую по порядку проверку: найдено 2026-08-30 на живом
+                    // прогоне слитого main — notes-format-unchanged падала по чужой
+                    // вине, унаследовав битый реестр.
+                    storage.removeKeys();
+                }
             },
         },
         {

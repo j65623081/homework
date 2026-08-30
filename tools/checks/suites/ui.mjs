@@ -14,6 +14,31 @@ import { expect, short } from '../lib/assert.mjs';
 /** Ссылки на чужие хосты: http(s):// и protocol-relative //cdn… */
 const EXTERNAL = /(?:src|href)\s*=\s*["'](?:https?:)?\/\/[^"']+["']|url\(\s*["']?(?:https?:)?\/\/[^)]+\)|@import\s+["']?(?:https?:)?\/\//gi;
 
+/**
+ * Страница + всё, что она подключает через <script src="…"> — локальные пути
+ * только, никакие внешние.
+ *
+ * Нужно потому, что фронтендер разнёс логику по файлам (api.js, dom.js, app.js)
+ * вместо инлайн-скриптов в index.html — верно с точки зрения структуры кода,
+ * но проверки ui/talks-to-api и ui/import-form-present сначала искали строку
+ * "/api/notes" в сырой разметке index.html и ничего не находили: путь к API
+ * лежит в api.js, а не в html. Найдено 2026-08-30 на живом прогоне слитого main.
+ */
+async function pageWithScripts(api) {
+    const page = await api.request('GET', '/ui/', { headers: { Accept: 'text/html' } });
+    const srcs = [...page.text.matchAll(/<script[^>]+src\s*=\s*["']([^"']+)["']/gi)]
+        .map((m) => m[1])
+        .filter((src) => !/^https?:\/\//i.test(src) && !src.startsWith('//'));
+    const scripts = await Promise.all(
+        srcs.map(async (src) => {
+            const url = src.startsWith('/') ? src : `/ui/${src}`;
+            const res = await api.request('GET', url);
+            return res.text ?? '';
+        }),
+    );
+    return { page, combined: page.text + '\n' + scripts.join('\n') };
+}
+
 export default {
     group: 'ui',
     title: 'Веб-интерфейс',
@@ -50,9 +75,9 @@ export default {
             expect: 'страница ходит в /api/notes',
             needs: ['ui'],
             run: async ({ api }) => {
-                const res = await api.request('GET', '/ui/', { headers: { Accept: 'text/html' } });
-                expect(/\/api\/notes/.test(res.text), 'в разметке нет ни одного упоминания /api/notes');
-                return 'в разметке есть обращение к /api/notes';
+                const { combined } = await pageWithScripts(api);
+                expect(/\/api\/notes/.test(combined), 'ни в разметке, ни в подключённых скриптах нет упоминания /api/notes');
+                return 'обращение к /api/notes есть в подключённых скриптах';
             },
         },
         {
@@ -61,11 +86,11 @@ export default {
             expect: 'есть поле для файла или для JSON-пачки и упоминание /api/notes/import',
             needs: ['ui'],
             run: async ({ api }) => {
-                const res = await api.request('GET', '/ui/', { headers: { Accept: 'text/html' } });
-                const hasField = /type\s*=\s*["']file["']/i.test(res.text) || /<textarea/i.test(res.text);
+                const { page, combined } = await pageWithScripts(api);
+                const hasField = /type\s*=\s*["']file["']/i.test(page.text) || /<textarea/i.test(page.text);
                 expect(hasField, 'ни input[type=file], ни textarea в разметке нет');
-                expect(/\/api\/notes\/import/.test(res.text), 'в разметке нет обращения к /api/notes/import');
-                return 'поле для пачки и обращение к /api/notes/import на месте';
+                expect(/\/api\/notes\/import/.test(combined), 'ни в разметке, ни в подключённых скриптах нет обращения к /api/notes/import');
+                return 'поле для пачки в разметке, обращение к /api/notes/import в подключённых скриптах';
             },
         },
         {
