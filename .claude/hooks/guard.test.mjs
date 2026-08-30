@@ -36,10 +36,16 @@ const cases = [
     { tool_name: 'Bash', tool_input: { command: 'base64 api/.env' } }],
   ['Приватный ключ', BLOCK,
     { tool_name: 'Bash', tool_input: { command: 'cat ~/.ssh/id_rsa' } }],
+  ['Файл без ведущей точки: backup.env', BLOCK,
+    { tool_name: 'Bash', tool_input: { command: 'cat backup.env' } }],
+  ['Файл без ведущей точки, полный путь: decoy.env', BLOCK,
+    { tool_name: 'Bash', tool_input: { command: 'cat C:/Temp/sandbox-demo/decoy.env' } }],
 
   // --- Контроль: похожее, но разрешённое. Правило не должно быть шире смысла ---
   ['КОНТРОЛЬ: .env.example читается', PASS,
     { tool_name: 'Bash', tool_input: { command: 'grep -c "" api/.env.example' } }],
+  ['КОНТРОЛЬ: .environment (не .env) не блокируется', PASS,
+    { tool_name: 'Bash', tool_input: { command: 'cat notes.environment.json' } }],
   ['КОНТРОЛЬ: обычные тесты запускаются', PASS,
     { tool_name: 'Bash', tool_input: { command: 'cd api && php artisan test' } }],
   ['КОНТРОЛЬ: git status работает', PASS,
