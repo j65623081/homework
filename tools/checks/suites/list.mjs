@@ -166,15 +166,19 @@ export default {
             },
         },
         {
+            // Решение человека, шаг 5 ДЗ №2 (2026-08-30): правило "неизвестные поля
+            // отклоняются" относится к телу запроса, не к query-строке. SPEC.md уточнён
+            // явно. До правки тест ожидал 422 unknown_fields и был снят с прогона по FAIL —
+            // расхождение оказалось не дефектом сервиса, а недосказанностью спеки.
             id: 'list/unknown-query-param',
             what: 'GET /api/notes?sort=title — параметра в контракте нет',
-            expect: '422 unknown_fields: неизвестные поля отклоняются, а не игнорируются',
+            expect: '200: query-параметры вне контракта игнорируются, а не отклоняются',
             needs: ['storage'],
             run: async ({ api, storage }) => {
                 storage.writeNotes(series(2));
                 const res = await api.get('/api/notes?sort=title');
-                expect(res.status === 422, describe(res));
-                expect(res.json?.error?.code === 'unknown_fields', describe(res));
+                expect(res.status === 200, describe(res));
+                expect(Array.isArray(res.json?.data) && res.json.data.length === 2, describe(res));
                 return describe(res);
             },
         },
