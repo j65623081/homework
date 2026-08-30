@@ -4,7 +4,9 @@
     "disableBypassPermissionsMode": "disable",
     "deny": [
       "Read(**/.env)",
-      "Read(**/.env.*)",
+      "Read(**/.env.local)",
+      "Read(**/.env.production)",
+      "Read(**/.env.backup)",
       "Read(~/.ssh/**)",
       "Read(**/*.pem)",
       "Read(**/*.key)",
