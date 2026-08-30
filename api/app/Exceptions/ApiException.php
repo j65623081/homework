@@ -60,6 +60,39 @@ class ApiException extends RuntimeException
         return new self('not_found', 404, 'Запрошенный ресурс не найден');
     }
 
+    /**
+     * Content-Type, которого нет среди двух допустимых форматов тела импорта.
+     * Поля fields здесь нет: ошибка относится к заголовку, а не к телу.
+     */
+    public static function unsupportedMediaType(): self
+    {
+        return new self('unsupported_media_type', 415, 'Content-Type не поддерживается этим эндпоинтом');
+    }
+
+    /** Пачка больше 200 заметок либо тело больше 2 МБ. Проверяется до разбора содержимого. */
+    public static function importTooLarge(): self
+    {
+        return new self('import_too_large', 413, 'Пачка превышает допустимый размер');
+    }
+
+    public static function idempotencyKeyInvalid(): self
+    {
+        return new self(
+            'idempotency_key_invalid',
+            422,
+            'Заголовок Idempotency-Key отсутствует или не подходит под формат'
+        );
+    }
+
+    public static function idempotencyKeyConflict(): self
+    {
+        return new self(
+            'idempotency_key_conflict',
+            409,
+            'Этот ключ идемпотентности уже использован с другим содержимым запроса'
+        );
+    }
+
     public static function storageCorrupted(): self
     {
         return new self('storage_corrupted', 500, 'Файл-хранилище не удалось прочитать');
