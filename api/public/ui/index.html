@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes API — веб-интерфейс</title>
+  <!-- Пустой data-URI вместо файла иконки: браузер не ходит за favicon.ico -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="layout">
+
+    <header class="page-header">
+      <h1>Заметки</h1>
+      <p class="page-header__sub">Веб-интерфейс над Notes API. Стенд — <code>http://localhost:8000</code></p>
+    </header>
+
+    <!-- Баннер недоступности стенда. Текст подставляется через textContent. -->
+    <div id="connection-banner" class="banner banner--error" role="alert" hidden>
+      <strong class="banner__title">Стенд не отвечает</strong>
+      <p id="connection-banner-text" class="banner__text"></p>
+      <button type="button" id="connection-retry" class="btn btn--ghost">Повторить</button>
+    </div>
+
+    <main class="columns">
+
+      <section class="panel panel--wide" aria-labelledby="list-heading">
+        <div class="panel__head">
+          <h2 id="list-heading">Список</h2>
+          <button type="button" id="reload" class="btn btn--ghost">Обновить</button>
+        </div>
+
+        <form id="filters" class="filters" autocomplete="off">
+          <div class="field">
+            <label for="filter-q">Поиск по заголовку и тексту</label>
+            <input type="search" id="filter-q" name="q" placeholder="подстрока, без учёта регистра">
+          </div>
+          <div class="field">
+            <label for="filter-tag">Тег</label>
+            <input type="search" id="filter-tag" name="tag" list="known-tags" placeholder="точное совпадение">
+            <datalist id="known-tags"></datalist>
+          </div>
+          <div class="field field--narrow">
+            <label for="filter-limit">На странице</label>
+            <select id="filter-limit" name="limit">
+              <option value="10">10</option>
+              <option value="20" selected>20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div class="field field--actions">
+            <button type="submit" class="btn btn--primary">Применить</button>
+            <button type="button" id="filters-reset" class="btn btn--ghost">Сбросить</button>
+          </div>
+        </form>
+
+        <p id="list-status" class="status" role="status"></p>
+        <div id="list-error" class="inline-error" role="alert" hidden></div>
+
+        <ul id="notes" class="notes"></ul>
+
+        <nav class="pager" aria-label="Постраничная навигация">
+          <button type="button" id="page-prev" class="btn btn--ghost">← Назад</button>
+          <span id="page-info" class="pager__info"></span>
+          <button type="button" id="page-next" class="btn btn--ghost">Вперёд →</button>
+        </nav>
+      </section>
+
+      <div class="column-side">
+
+        <section class="panel" aria-labelledby="create-heading">
+          <div class="panel__head"><h2 id="create-heading">Новая заметка</h2></div>
+          <form id="create-form" autocomplete="off">
+            <div class="field">
+              <label for="create-title">Заголовок <span class="req">обязательно</span></label>
+              <input type="text" id="create-title" name="title" maxlength="400" required>
+            </div>
+            <div class="field">
+              <label for="create-body">Текст</label>
+              <textarea id="create-body" name="body" rows="4"></textarea>
+            </div>
+            <div class="field">
+              <label for="create-tags">Теги</label>
+              <input type="text" id="create-tags" name="tags" placeholder="через запятую: работа, дом">
+              <p class="hint">Сервер приведёт теги к нижнему регистру, уберёт пробелы по краям и повторы.</p>
+            </div>
+            <div class="field field--actions">
+              <button type="submit" class="btn btn--primary">Создать</button>
+            </div>
+            <div id="create-error" class="inline-error" role="alert" hidden></div>
+            <p id="create-status" class="status" role="status"></p>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="import-heading">
+          <div class="panel__head"><h2 id="import-heading">Импорт пачкой</h2></div>
+          <form id="import-form" autocomplete="off">
+
+            <fieldset class="field fieldset">
+              <legend>Источник</legend>
+              <label class="radio"><input type="radio" name="source" value="text" checked> JSON текстом</label>
+              <label class="radio"><input type="radio" name="source" value="file"> Файл</label>
+            </fieldset>
+
+            <div class="field" id="import-text-field">
+              <label for="import-text">JSON пачки</label>
+              <textarea id="import-text" name="payload" rows="8" spellcheck="false"></textarea>
+              <p class="hint">Формат: объект с полем <code>notes</code> — массивом заметок.
+                 Отправляется как есть, без правки на клиенте: разбор JSON — дело сервера.</p>
+            </div>
+
+            <div class="field" id="import-file-field" hidden>
+              <label for="import-file">Файл в UTF-8</label>
+              <input type="file" id="import-file" name="file" accept=".json,application/json,text/plain">
+              <p class="hint" id="import-file-info"></p>
+            </div>
+
+            <div class="field">
+              <label for="import-key">Idempotency-Key <span class="req">обязательно</span></label>
+              <div class="row">
+                <input type="text" id="import-key" name="key" maxlength="128"
+                  placeholder="8–128 символов: A–Z a–z 0–9 _ -">
+                <button type="button" id="import-key-gen" class="btn btn--ghost">Сгенерировать</button>
+              </div>
+              <p class="hint" id="import-key-hint"></p>
+            </div>
+
+            <div class="field field--actions">
+              <button type="submit" class="btn btn--primary">Импортировать</button>
+            </div>
+
+            <div id="import-error" class="inline-error" role="alert" hidden></div>
+            <p id="import-status" class="status" role="status"></p>
+          </form>
+
+          <div id="import-report" class="report" hidden>
+            <h3 class="report__title">Отчёт импорта</h3>
+            <ul class="report__totals">
+              <li>Записано: <strong id="report-imported"></strong></li>
+              <li>Отклонено: <strong id="report-rejected"></strong></li>
+              <li>Повтор по ключу: <strong id="report-replay"></strong></li>
+            </ul>
+
+            <h4 class="report__sub">Отклонённые элементы</h4>
+            <p id="report-errors-empty" class="hint" hidden>Отклонённых нет.</p>
+            <div class="table-scroll" id="report-errors-wrap">
+              <table class="report__table">
+                <thead>
+                  <tr><th scope="col">Индекс</th><th scope="col">Код</th><th scope="col">Причины</th></tr>
+                </thead>
+                <tbody id="report-errors"></tbody>
+              </table>
+            </div>
+
+            <h4 class="report__sub">Созданные заметки</h4>
+            <p id="report-notes-empty" class="hint" hidden>Не создано ни одной заметки.</p>
+            <ul id="report-notes" class="report__notes"></ul>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <footer class="page-footer">
+      <p>Данные заметок выводятся как текст. Разметка из <code>title</code>, <code>body</code>
+         и <code>tags</code> не исполняется.</p>
+    </footer>
+  </div>
+
+  <!-- Обычные скрипты, не ES-модули: страница должна открываться и по file://,
+       где модули блокируются политикой источника. -->
+  <script src="api.js" defer></script>
+  <script src="dom.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
