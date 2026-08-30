@@ -78,20 +78,17 @@ class NoteStorage
     }
 
     /**
-     * Атомарная запись: сначала временный файл рядом, затем переименование.
-     * Прерывание процесса посреди записи иначе оставило бы наполовину записанный
-     * JSON — то есть сервис своими руками перевёл бы себя в storage_corrupted.
+     * Запись атомарна (см. JsonFile): прерывание процесса посреди записи иначе
+     * оставило бы наполовину записанный JSON — то есть сервис своими руками
+     * перевёл бы себя в storage_corrupted.
+     *
+     * Формат файла — список заметок, и он не менялся с ДЗ №1: импорт дописывает
+     * в него записи, но структуру не трогает.
      *
      * @param  array<int, array<string, mixed>>  $notes
      */
     public function save(array $notes): void
     {
-        $directory = dirname($this->path);
-
-        if (! is_dir($directory) && ! @mkdir($directory, 0775, true) && ! is_dir($directory)) {
-            throw ApiException::internalError();
-        }
-
         $json = json_encode(
             array_values($notes),
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
@@ -101,16 +98,6 @@ class NoteStorage
             throw ApiException::internalError();
         }
 
-        $temporary = $this->path.'.'.bin2hex(random_bytes(6)).'.tmp';
-
-        if (@file_put_contents($temporary, $json.PHP_EOL) === false) {
-            throw ApiException::internalError();
-        }
-
-        if (! @rename($temporary, $this->path)) {
-            @unlink($temporary);
-
-            throw ApiException::internalError();
-        }
+        JsonFile::writeAtomically($this->path, $json.PHP_EOL);
     }
 }

@@ -30,8 +30,19 @@ class NotePayload
      */
     public static function fromRequest(Request $request): array
     {
-        $data = self::decode($request->getContent());
+        return self::fromArray(self::decode($request->getContent()));
+    }
 
+    /**
+     * Тот же разбор, но для уже разобранного объекта. Нужен импорту: элемент пачки
+     * подчиняется тем же правилам, что тело POST /api/notes, и повторять их
+     * во втором месте нельзя — разъедутся.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{title: string, body: string, tags: array<int, string>}
+     */
+    public static function fromArray(array $data): array
+    {
         self::rejectUnknownFields($data);
 
         return self::validate($data);

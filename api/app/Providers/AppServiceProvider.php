@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\ImportKeyRegistry;
 use App\Support\NoteStorage;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,6 +18,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             NoteStorage::class,
             fn ($app) => new NoteStorage((string) $app['config']->get('notes.path'))
+        );
+
+        $this->app->singleton(
+            ImportKeyRegistry::class,
+            fn ($app) => new ImportKeyRegistry((string) $app['config']->get('notes.keys_path'))
         );
     }
 

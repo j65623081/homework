@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
+use App\Support\ImportBatch;
+use App\Support\ImportKeyRegistry;
 use App\Support\ListQuery;
 use App\Support\NotePayload;
 use App\Support\NoteStorage;
@@ -57,6 +59,114 @@ class NoteController extends Controller
 
         return $this->json(['data' => $this->present($note)], 201)
             ->header('Location', '/api/notes/'.$note['id']);
+    }
+
+    /**
+     * POST /api/notes/import
+     *
+     * Импорт пачкой с частичным успехом и ключом идемпотентности.
+     *
+     * Порядок шагов задан контрактом и стоит того, чтобы держать его перед глазами:
+     * запрос проверяется целиком (заголовки, потолки, форма пачки), затем читается
+     * реестр ключей, и только потом — хранилище заметок. Реестр раньше хранилища
+     * потому, что повтор обязан вернуть сохранённый отчёт, вообще не прикасаясь
+     * к notes.json.
+     */
+    public function import(Request $request, ImportKeyRegistry $registry): JsonResponse
+    {
+        $batch = ImportBatch::fromRequest($request);
+
+        // Нечитаемый реестр — internal_error, и файл не перезаписывается:
+        // это потеря защиты от повторов, а не потеря данных.
+        $entries = $registry->all();
+        $known = $entries[$batch->key] ?? null;
+
+        if ($known !== null) {
+            if (($known['request_hash'] ?? null) !== $batch->requestHash) {
+                throw ApiException::idempotencyKeyConflict();
+            }
+
+            // Ровно то же тело, что в первый раз, — меняется только флаг.
+            // Хранилище не трогается.
+            $replay = $known['response'];
+            $replay['idempotent_replay'] = true;
+
+            return $this->json($replay);
+        }
+
+        $notes = $this->storage->all();
+
+        $now = $this->now();
+        $created = [];
+        $errors = [];
+
+        foreach ($batch->items as $index => $item) {
+            try {
+                $payload = self::itemPayload($item);
+            } catch (ApiException $e) {
+                // Брак отдельного элемента — строка в отчёте, а не отказ всей пачке.
+                // Индекс — из входной пачки, а не из списка записанных заметок.
+                $errors[] = array_filter([
+                    'index' => $index,
+                    'code' => $e->errorCode,
+                    'fields' => $e->fields,
+                ], fn ($value) => $value !== null);
+
+                continue;
+            }
+
+            $created[] = [
+                'id' => (string) Str::uuid(),
+                'title' => $payload['title'],
+                'body' => $payload['body'],
+                'tags' => $payload['tags'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        $response = [
+            'imported' => count($created),
+            'rejected' => count($errors),
+            'idempotent_replay' => false,
+            'notes' => array_map($this->present(...), $created),
+            'errors' => $errors,
+        ];
+
+        // Порядок записи зафиксирован контрактом: сначала notes.json, потом реестр.
+        // Падение между записями означает «заметки записаны, ключ не зафиксирован» —
+        // видимые дубли вместо тихого ложного успеха.
+        if ($created !== []) {
+            $this->storage->save(array_merge($notes, $created));
+        }
+
+        $entries[$batch->key] = [
+            'request_hash' => $batch->requestHash,
+            'response' => $response,
+            'created_at' => $now,
+        ];
+
+        $registry->save($entries);
+
+        return $this->json($response);
+    }
+
+    /**
+     * Элемент пачки подчиняется тем же правилам, что тело POST /api/notes.
+     * Элемент, который вовсе не объект, контрактом не описан: отклоняется
+     * как validation_failed — JSON разобрался, не сошлась форма записи.
+     *
+     * @return array{title: string, body: string, tags: array<int, string>}
+     */
+    private static function itemPayload(mixed $item): array
+    {
+        if (! is_array($item) || (array_is_list($item) && $item !== [])) {
+            throw ApiException::validationFailed([
+                'note' => ['Элемент пачки должен быть объектом'],
+            ]);
+        }
+
+        return NotePayload::fromArray($item);
     }
 
     /** GET /api/notes/{id} */
