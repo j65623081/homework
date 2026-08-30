@@ -20,8 +20,6 @@
       "Bash(composer require*)",
       "Bash(composer remove*)",
       "Bash(composer update*)",
-      "Bash(npm install*)",
-      "Bash(npm i *)",
       "Bash(php artisan install:api*)",
 
       "Bash(php artisan migrate*)",

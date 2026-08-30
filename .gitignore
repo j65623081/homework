@@ -1,2 +1,7 @@
 # Настройки IDE — к сдаче отношения не имеют
 .idea/
+
+# Инструменты проверки вне приложения: пакеты не идут в репозиторий
+tools/e2e/node_modules/
+tools/e2e/package-lock.json
+tools/e2e/test-results/

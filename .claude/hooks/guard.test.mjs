@@ -61,6 +61,14 @@ const cases = [
   ['docker', BLOCK,
     { tool_name: 'Bash', tool_input: { command: 'docker run -it ubuntu bash' } }],
 
+  // --- Граница, сужённая человеком 2026-08-30: npm запрещён в api/, разрешён вне ---
+  ['npm install внутри api/', BLOCK,
+    { tool_name: 'Bash', tool_input: { command: 'cd api && npm install some-package' } }],
+  ['npm install по пути api/', BLOCK,
+    { tool_name: 'Bash', tool_input: { command: 'npm install --prefix api/ some-package' } }],
+  ['КОНТРОЛЬ: npm install в tools/e2e', PASS,
+    { tool_name: 'Bash', tool_input: { command: 'cd tools/e2e && npm install --save-dev @playwright/test' } }],
+
   // --- Комплект занятия и журнал ---
   ['Правка homework.pdf инструментом', BLOCK,
     { tool_name: 'Write', tool_input: { file_path: 'C:/Users/Ivan/Desktop/TestTask/homework.pdf' } }],
